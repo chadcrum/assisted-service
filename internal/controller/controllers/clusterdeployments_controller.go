@@ -323,38 +323,6 @@ func (r *ClusterDeploymentsReconciler) agentClusterInstallFinalizer(ctx context.
 }
 
 func (r *ClusterDeploymentsReconciler) clusterDeploymentFinalizer(ctx context.Context, log logrus.FieldLogger, clusterDeployment *hivev1.ClusterDeployment) (*ctrl.Result, error) {
-	if clusterDeployment.ObjectMeta.DeletionTimestamp.IsZero() { // clusterDeployment not being deleted
-		// Register a finalizer if it is absent.
-		if !funk.ContainsString(clusterDeployment.GetFinalizers(), ClusterDeploymentFinalizerName) {
-			controllerutil.AddFinalizer(clusterDeployment, ClusterDeploymentFinalizerName)
-			if err := r.Update(ctx, clusterDeployment); err != nil {
-				log.WithError(err).Errorf("failed to add finalizer %s to resource %s %s",
-					ClusterDeploymentFinalizerName, clusterDeployment.Name, clusterDeployment.Namespace)
-				return &ctrl.Result{Requeue: true}, err
-			}
-		}
-	} else { // clusterDeployment is being deleted
-		if funk.ContainsString(clusterDeployment.GetFinalizers(), ClusterDeploymentFinalizerName) {
-			reply, cleanUpErr := r.deleteClusterInstall(ctx, log, clusterDeployment)
-			if cleanUpErr != nil {
-				log.WithError(cleanUpErr).Errorf(
-					"clusterDeployment %s %s is still waiting for clusterInstall %s to be deleted",
-					clusterDeployment.Name, clusterDeployment.Namespace, clusterDeployment.Spec.ClusterInstallRef.Name,
-				)
-				return &reply, cleanUpErr
-			}
-
-			// remove our finalizer from the list and update it.
-			controllerutil.RemoveFinalizer(clusterDeployment, ClusterDeploymentFinalizerName)
-			if err := r.Update(ctx, clusterDeployment); err != nil {
-				log.WithError(err).Errorf("failed to remove finalizer %s from resource %s %s",
-					ClusterDeploymentFinalizerName, clusterDeployment.Name, clusterDeployment.Namespace)
-				return &ctrl.Result{Requeue: true}, err
-			}
-		}
-		// Stop reconciliation as the item is being deleted
-		return &ctrl.Result{}, nil
-	}
 	return nil, nil
 }
 
